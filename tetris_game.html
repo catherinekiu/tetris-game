@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+        }
+        canvas {
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="tetris" width="300" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('tetris');
+        const ctx = canvas.getContext('2d');
+        const ROWS = 20;
+        const COLS = 10;
+        const BLOCK_SIZE = 30;
+        const COLORS = ['cyan', 'blue', 'orange', 'yellow', 'green', 'purple', 'red'];
+        
+        canvas.width = COLS * BLOCK_SIZE;
+        canvas.height = ROWS * BLOCK_SIZE;
+        ctx.scale(BLOCK_SIZE, BLOCK_SIZE);
+        
+        const pieces = [
+            [[1, 1, 1, 1]], // I
+            [[1, 1], [1, 1]], // O
+            [[0, 1, 0], [1, 1, 1]], // T
+            [[1, 0, 0], [1, 1, 1]], // L
+            [[0, 0, 1], [1, 1, 1]], // J
+            [[0, 1, 1], [1, 1, 0]], // S
+            [[1, 1, 0], [0, 1, 1]]  // Z
+        ];
+        
+        function createPiece() {
+            const index = Math.floor(Math.random() * pieces.length);
+            return {
+                matrix: pieces[index],
+                color: COLORS[index],
+                pos: { x: Math.floor(COLS / 2) - 1, y: 0 }
+            };
+        }
+
+        function drawMatrix(matrix, offset, color) {
+            ctx.fillStyle = color;
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        ctx.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    }
+                });
+            });
+        }
+
+        function merge(board, piece) {
+            piece.matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        board[y + piece.pos.y][x + piece.pos.x] = piece.color;
+                    }
+                });
+            });
+        }
+
+        function collide(board, piece) {
+            for (let y = 0; y < piece.matrix.length; y++) {
+                for (let x = 0; x < piece.matrix[y].length; x++) {
+                    if (piece.matrix[y][x] &&
+                        (board[y + piece.pos.y] &&
+                        board[y + piece.pos.y][x + piece.pos.x]) !== 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function rotate(matrix) {
+            return matrix[0].map((_, i) => matrix.map(row => row[i])).reverse();
+        }
+
+        function clearLines() {
+            outer: for (let y = board.length - 1; y >= 0; y--) {
+                for (let x = 0; x < board[y].length; x++) {
+                    if (!board[y][x]) {
+                        continue outer;
+                    }
+                }
+                board.splice(y, 1);
+                board.unshift(new Array(COLS).fill(0));
+                y++;
+            }
+        }
+
+        function drop() {
+            piece.pos.y++;
+            if (collide(board, piece)) {
+                piece.pos.y--;
+                merge(board, piece);
+                clearLines();
+                piece = createPiece();
+                if (collide(board, piece)) {
+                    board.forEach(row => row.fill(0));
+                }
+            }
+            dropCounter = 0;
+        }
+
+        function move(dir) {
+            piece.pos.x += dir;
+            if (collide(board, piece)) {
+                piece.pos.x -= dir;
+            }
+        }
+
+        function update(time = 0) {
+            dropCounter += (time - lastTime);
+            lastTime = time;
+            if (dropCounter > 1000) {
+                drop();
+            }
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawMatrix(board, { x: 0, y: 0 }, 'gray');
+            drawMatrix(piece.matrix, piece.pos, piece.color);
+        }
+
+        let board = Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+        let piece = createPiece();
+        let dropCounter = 0;
+        let lastTime = 0;
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'ArrowLeft') move(-1);
+            else if (event.key === 'ArrowRight') move(1);
+            else if (event.key === 'ArrowDown') drop();
+            else if (event.key === 'ArrowUp') {
+                const rotated = rotate(piece.matrix);
+                if (!collide(board, { ...piece, matrix: rotated })) {
+                    piece.matrix = rotated;
+                }
+            }
+        });
+
+        update();
+    </script>
+</body>
+</html>
